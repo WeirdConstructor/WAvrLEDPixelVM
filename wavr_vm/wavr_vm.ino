@@ -63,10 +63,10 @@ WAvrProg PROG;
 #define MAX_REGS (16 + MAX_INIT_REGS)
 #define LAST_REG (MAX_REGS - 1)
 
-#define REG_PIXEL   (LAST_REG)
-#define REG_PIXEL_F (LAST_REG - 1)
-#define REG_FRAME   (LAST_REG - 2)
-#define REG_TIME_F  (LAST_REG - 3)
+#define REG_TIME_S  (LAST_REG)
+//#define REG_PIXEL_F (LAST_REG - 1)
+//#define REG_FRAME   (LAST_REG - 2)
+//#define REG_TIME_F  (LAST_REG - 3)
 
 class WAvrVMContext {
     public:
@@ -116,24 +116,8 @@ WAvrVMContext CTX;
 #define LD_REGS2() \
     do { \
         a = regs[*(prog + 2)]; \
-        a = regs[*(prog + 3)]; \
-    } while(0)
-
-#define LD_REGS3() \
-    do { \
-        a = regs[*(prog + 2)]; \
         b = regs[*(prog + 3)]; \
-        c = regs[*(prog + 4)]; \
     } while(0)
-
-#define LD_REGS4() \
-    do { \
-        a = regs[*(prog + 2)]; \
-        b = regs[*(prog + 3)]; \
-        c = regs[*(prog + 4)]; \
-        d = regs[*(prog + 5)]; \
-    } while(0)
-
 
 #define LD_PROG3() \
     do { \
@@ -142,6 +126,15 @@ WAvrVMContext CTX;
         c = *(prog + 3); \
     } while(0)
 
+#define LD_PROG_O_2() \
+    do { \
+        a = *(prog + 2); \
+        b = *(prog + 3); \
+    } while(0)
+
+#define F_O_2() (((float) ((a << 8) | b)) / 65535.0)
+
+
 #define OP_WIDTH 4
 #define SKIP_PROG prog = prog + OP_WIDTH;
 
@@ -149,8 +142,26 @@ WAvrVMContext CTX;
 #define OP_MOV      0x02
 #define OP_LDREG    0x03
 
+#define OP_TPHASE   0x0A
+
+#define OP_ADD      0x30
+#define OP_ADDF     0x31
+#define OP_MUL      0x32
+#define OP_MULF     0x33
+#define OP_DIV      0x34
+#define OP_DIVF     0x35
+#define OP_SUB      0x36
+#define OP_SUBF     0x37
+
+#define OP_FMOD     0x38
+#define OP_FMODF    0x39
+
+#define OP_SIN      0x40
+
 #define OP_SET_RGB  0x10
 #define OP_SET_HSV  0x11
+#define OP_HSV      0x12
+#define OP_RGB      0x13
 #define OP_PIX_HSV  0x20
 #define OP_PIX_RGB  0x21
 #define OP_PIX      0x22
@@ -161,12 +172,15 @@ WAvrVMContext CTX;
 uint8_t  *init_prog = &PROG.m_prog[0];
 uint32_t *regs = &CTX.m_regs[0];
 
+uint16_t counter = 0;
+
 void exec_prog() {
     uint8_t *prog = init_prog;
 
     bool prog_runs = true;
 
     uint32_t a = 0, b = 0, c = 0, d = 0;
+    float ftmp = 0.0;
 
     uint8_t pixel_idx = PROG.m_pix_offs;
 
@@ -175,16 +189,155 @@ void exec_prog() {
         switch (*prog)
         {
             case OP_SET:
-                a = *(prog + 2);
-                b = *(prog + 3);
-                SV_F_REG(((float) ((a << 8) | b)) / 65535.0);
+                LD_PROG_O_2();
+                SV_F_REG(F_O_2());
                 break;
+
             case OP_MOV:
                 LD_REGS1();
                 SV_REG(a);
                 break;
+
+            case OP_ADD:
+                LD_REGS2();
+                SV_F_REG(FR_GET(a) + FR_GET(b));
+                break;
+
+            case OP_ADDF:
+                LD_PROG_O_2();
+                ftmp = F_O_2();
+                LD_REGS0_1();
+
+                SV_F_REG(FR_GET(a) + ftmp);
+                break;
+
+            case OP_MUL:
+                LD_REGS2();
+                SV_F_REG(FR_GET(a) * FR_GET(b));
+                break;
+
+            case OP_MULF:
+                LD_PROG_O_2();
+                ftmp = F_O_2();
+                LD_REGS0_1();
+
+                SV_F_REG(FR_GET(a) * ftmp);
+                break;
+
+            case OP_FMOD:
+                LD_REGS2();
+
+                if (abs(FR_GET(b)) > 0.00001)
+                {
+                    SV_F_REG(
+                        FR_GET(a)
+                        - floor(FR_GET(a) / FR_GET(b))
+                          * FR_GET(b));
+                }
+                else
+                {
+                    SV_F_REG(0.0);
+                }
+                break;
+
+            case OP_FMODF:
+                LD_PROG_O_2();
+                ftmp = F_O_2();
+                LD_REGS0_1();
+
+                if (abs(ftmp) > 0.00001)
+                {
+                    SV_F_REG(
+                        FR_GET(a)
+                        - floor(FR_GET(a) / ftmp)
+                          * ftmp);
+                }
+                else
+                {
+                    SV_F_REG(0.0);
+                }
+                break;
+
+            case OP_SIN:
+                LD_REGS1();
+                SV_F_REG((sin(FR_GET(a) * TWO_PI) + 1.0) * 0.5);
+                break;
+
+            case OP_SUB:
+                LD_REGS2();
+                SV_F_REG(FR_GET(a) - FR_GET(b));
+                break;
+
+            case OP_SUBF:
+                LD_PROG_O_2();
+                ftmp = F_O_2();
+                LD_REGS0_1();
+
+                SV_F_REG(FR_GET(a) - ftmp);
+                break;
+
+            case OP_DIV:
+                LD_REGS2();
+                if (abs(FR_GET(b)) > 0.00001)
+                {
+                    SV_F_REG(FR_GET(a) / FR_GET(b));
+                }
+                else
+                {
+                    SV_F_REG(0.0);
+                }
+                break;
+
+            case OP_DIVF:
+                LD_PROG_O_2();
+                ftmp = F_O_2();
+                LD_REGS0_1();
+
+                if (abs(ftmp) > 0.00001)
+                {
+                    SV_F_REG(FR_GET(a) / ftmp);
+                }
+                else
+                {
+                    SV_F_REG(0.0);
+                }
+                break;
+
+            case OP_TPHASE:
+                LD_PROG_O_2();
+                a = (uint32_t) ((a << 8) | b);
+                SV_F_REG(
+                    (((float) (((uint32_t) millis()) % a))
+                     / ((float) a)));
+                break;
+
+            case OP_RGB:
+                LD_REGS0_3();
+                regs[0] =
+                    pixels.Color(
+                        (uint8_t) (FR_GET(a) * 255.0),
+                        (uint8_t) (FR_GET(b) * 255.0),
+                        (uint8_t) (FR_GET(c) * 255.0));
+                break;
+
+            case OP_HSV:
+                LD_REGS0_3();
+
+                if (counter % 100 == 0)
+                {
+                    Serial.println(FR_GET(a));
+                }
+
+                regs[0] =
+                    pixels.ColorHSV(
+                        (uint16_t) (FR_GET(a) * 65535.0),
+                        (uint8_t)  (FR_GET(b) * 255.0),
+                        (uint8_t)  (FR_GET(c) * 255.0));
+                break;
+
             case OP_LDREG:
                 break;
+
             case OP_SET_RGB:
                 LD_PROG3();
 
@@ -208,6 +361,7 @@ void exec_prog() {
                 pixel_idx++;
                 // pixels.setPixelColor(a, pixels.gamma32(pixels.Color(0xFF, 0x00, 0x00)));
                 break;
+
             case OP_PIX_N:
                 LD_REGS0_1();
                 b = *(prog + 2);
@@ -219,6 +373,7 @@ void exec_prog() {
                     pixels.setPixelColor(i, pixels.gamma32(a));
                 pixel_idx += b;
                 break;
+
             case OP_PIX_HSV:
                 LD_REGS0_3();
 
@@ -229,6 +384,7 @@ void exec_prog() {
                         (uint8_t)  (FR_GET(b) * 255.0),
                         (uint8_t)  (FR_GET(c) * 255.0))));
                 break;
+
             case OP_PIX_RGB:
                 LD_REGS0_3();
                 pixels.setPixelColor(
@@ -238,6 +394,7 @@ void exec_prog() {
                         (uint8_t) (FR_GET(b) * 255.0),
                         (uint8_t) (FR_GET(c) * 255.0))));
                 break;
+
             case OP_RET:
                 prog_runs = pixel_idx < PROG.m_num_pixels;
                 prog = init_prog;
@@ -336,6 +493,51 @@ void setup() {
     PROG.m_prog[pc++] = 0x05;
     PROG.m_prog[pc++] = 0x00;
 
+    PROG.m_prog[pc++] = OP_TPHASE;
+    PROG.m_prog[pc++] = 0x04;
+    PROG.m_prog[pc++] = 0x1F;
+    PROG.m_prog[pc++] = 0x00;
+
+    PROG.m_prog[pc++] = OP_SIN;
+    PROG.m_prog[pc++] = 0x04;
+    PROG.m_prog[pc++] = 0x04;
+    PROG.m_prog[pc++] = 0x00;
+
+    PROG.m_prog[pc++] = OP_MULF;
+    PROG.m_prog[pc++] = 0x04;
+    PROG.m_prog[pc++] = 0x60;
+    PROG.m_prog[pc++] = 0x00;
+
+    PROG.m_prog[pc++] = OP_ADDF;
+    PROG.m_prog[pc++] = 0x04;
+    PROG.m_prog[pc++] = 0x30;
+    PROG.m_prog[pc++] = 0x00;
+
+    PROG.m_prog[pc++] = OP_SET;
+    PROG.m_prog[pc++] = 0x05;
+    PROG.m_prog[pc++] = 0xFF;
+    PROG.m_prog[pc++] = 0xFF;
+
+    PROG.m_prog[pc++] = OP_HSV;
+    PROG.m_prog[pc++] = 0x04;
+    PROG.m_prog[pc++] = 0x05;
+    PROG.m_prog[pc++] = 0x05;
+
+    PROG.m_prog[pc++] = OP_PIX_N;
+    PROG.m_prog[pc++] = 0x00;
+    PROG.m_prog[pc++] = 0x03;
+    PROG.m_prog[pc++] = 0x00;
+
+    PROG.m_prog[pc++] = OP_SET_HSV;
+    PROG.m_prog[pc++] = 0x7F;
+    PROG.m_prog[pc++] = 0x7F;
+    PROG.m_prog[pc++] = 0xFF;
+
+    PROG.m_prog[pc++] = OP_PIX_N;
+    PROG.m_prog[pc++] = 0x00;
+    PROG.m_prog[pc++] = 0x02;
+    PROG.m_prog[pc++] = 0x00;
+
     PROG.m_prog[pc++] = OP_RET;
     PROG.m_prog[pc++] = 0x00;
     PROG.m_prog[pc++] = 0x00;
@@ -350,8 +552,6 @@ void setup() {
 
     CTX.load_prog_regs();
 }
-
-uint16_t counter = 0;
 
 void loop() {
     pixels.clear();
