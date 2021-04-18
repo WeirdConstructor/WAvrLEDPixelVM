@@ -53,7 +53,6 @@ class WAvrProg {
 
         void set_reg_hsv(uint8_t idx, uint16_t h, uint8_t s, uint8_t v)
         {
-            Serial.println(h);
             m_init_regs[idx] = pixels.ColorHSV(h, s, v);
         }
 };
@@ -323,11 +322,6 @@ void exec_prog() {
             case OP_HSV:
                 LD_REGS0_3();
 
-                if (counter % 100 == 0)
-                {
-                    Serial.println(FR_GET(a));
-                }
-
                 regs[0] =
                     pixels.ColorHSV(
                         (uint16_t) (FR_GET(a) * 65535.0),
@@ -408,140 +402,145 @@ void exec_prog() {
     }
 }
 
+#define SERIAL_BUFFER_SIZE 20
+char SERIAL_BUFFER[21];
+int serial_buf_ptr = 0;
+int serial_rd_ptr = 0;
+
+void read_serial_buffer()
+{
+    while (true)
+    {
+        char c = Serial.read();
+
+        if (c == -1)
+        {
+            delay(50);
+            continue;
+        }
+
+        // Serial.print("[");
+        // Serial.print((int) c);
+        // Serial.println("]");
+
+        if (serial_buf_ptr <= 0
+            && (c == '\r' || c == '\n' || c == ' '))
+            continue;
+
+        if (c == '\r' || c == '\n')
+        {
+            SERIAL_BUFFER[serial_buf_ptr] = '\0';
+            parse_serial_buffer();
+            serial_buf_ptr = 0;
+            return;
+        }
+
+        if (serial_buf_ptr >= SERIAL_BUFFER_SIZE)
+            serial_buf_ptr = 0;
+
+        SERIAL_BUFFER[serial_buf_ptr++] = c;
+    }
+}
+
+bool test_next_str(const char *test, int &len)
+{
+    // <= is ok, because SERIAL_BUFFER is one byte bigger than SERIAL_BUFFER_SIZE
+    for (int i = serial_rd_ptr; i <= SERIAL_BUFFER_SIZE; i++)
+    {
+        int tst_c = test[i - serial_rd_ptr];
+        char c = SERIAL_BUFFER[i];
+//        Serial.print(i);
+//        Serial.print(":");
+//        Serial.print(c);
+//        Serial.print(" ");
+//        Serial.print((char) tst_c);
+//        Serial.print(" ");
+//        Serial.print(serial_rd_ptr);
+//        Serial.println();
+
+        if (isWhitespace(c))
+            return false;
+
+        if (tst_c == '\0')
+        {
+            len = i - serial_rd_ptr;
+            serial_rd_ptr += len;
+            return true;
+        }
+        else if (tst_c != c)
+            return false;
+    }
+}
+
+void skip_ws()
+{
+    while (serial_rd_ptr < SERIAL_BUFFER_SIZE)
+    {
+        if (isWhitespace(SERIAL_BUFFER[serial_rd_ptr]))
+        {
+//            Serial.println("SKIPWS");
+            serial_rd_ptr++;
+        }
+        else
+            return;
+    }
+}
+
+void parse_serial_buffer()
+{
+    serial_rd_ptr = 0;
+
+    skip_ws();
+
+    Serial.print("BUF[");
+    Serial.print(SERIAL_BUFFER);
+    Serial.println("]");
+    int len = 0;
+    if (test_next_str("PROG", len))
+    {
+        Serial.println("FOUND!");
+        Serial.println(len);
+    }
+}
+
 void setup() {
-  // These lines are specifically to support the Adafruit Trinket 5V 16 MHz.
-  // Any other board, you can remove this part (but no harm leaving it):
+    // These lines are specifically to support the Adafruit Trinket 5V 16 MHz.
+    // Any other board, you can remove this part (but no harm leaving it):
 #if defined(__AVR_ATtiny85__) && (F_CPU == 16000000)
-  clock_prescale_set(clock_div_1);
+    clock_prescale_set(clock_div_1);
 #endif
-  // END of Trinket-specific code.
+    // END of Trinket-specific code.
 
-  Serial.begin(115200);
+    Serial.begin(9600);
 
-  pixels.begin(); // INITIALIZE NeoPixel strip object (REQUIRED)
-  pixels.show();            // Turn OFF all pixels ASAP
-  pixels.setBrightness(50); // Set BRIGHTNESS to about 1/5 (max = 255)
-
+    // INITIALIZE NeoPixel strip object (REQUIRED)
+    pixels.begin();
+    pixels.show();            // Turn OFF all pixels ASAP
+    pixels.setBrightness(50); // Set BRIGHTNESS to about 1/5 (max = 255)
 
     int pc = 0;
-//    PROG.m_prog[pc++] = OP_SET;
-//    PROG.m_prog[pc++] = 0x01;
-//    PROG.m_prog[pc++] = 0x07;
-//    PROG.m_prog[pc++] = 0xFF;
-//
-//    PROG.m_prog[pc++] = OP_SET;
-//    PROG.m_prog[pc++] = 0x01;
-//    PROG.m_prog[pc++] = 0x07;
-//    PROG.m_prog[pc++] = 0xFF;
-//    PROG.m_prog[pc++] = OP_SET;
-//    PROG.m_prog[pc++] = 0x01;
-//    PROG.m_prog[pc++] = 0x07;
-//    PROG.m_prog[pc++] = 0xFF;
-//    PROG.m_prog[pc++] = OP_SET;
-//    PROG.m_prog[pc++] = 0x01;
-//    PROG.m_prog[pc++] = 0x07;
-//    PROG.m_prog[pc++] = 0xFF;
-//    PROG.m_prog[pc++] = OP_SET;
-//    PROG.m_prog[pc++] = 0x01;
-//    PROG.m_prog[pc++] = 0x07;
-//    PROG.m_prog[pc++] = 0xFF;
-//    PROG.m_prog[pc++] = OP_SET;
-//    PROG.m_prog[pc++] = 0x01;
-//    PROG.m_prog[pc++] = 0x07;
-//    PROG.m_prog[pc++] = 0xFF;
-//    PROG.m_prog[pc++] = OP_SET;
-//    PROG.m_prog[pc++] = 0x01;
-//    PROG.m_prog[pc++] = 0x07;
-//    PROG.m_prog[pc++] = 0xFF;
-//    PROG.m_prog[pc++] = OP_SET;
-//    PROG.m_prog[pc++] = 0x01;
-//    PROG.m_prog[pc++] = 0x07;
-//    PROG.m_prog[pc++] = 0xFF;
-//    PROG.m_prog[pc++] = OP_SET;
-//    PROG.m_prog[pc++] = 0x01;
-//    PROG.m_prog[pc++] = 0x07;
-//    PROG.m_prog[pc++] = 0xFF;
-//
-//    PROG.m_prog[pc++] = OP_SET_HSV;
-//    PROG.m_prog[pc++] = 0x00;
-//    PROG.m_prog[pc++] = 0x33;
-//    PROG.m_prog[pc++] = 0xFF;
-//    PROG.m_prog[pc++] = 0xFF;
-//
-    PROG.m_prog[pc++] = OP_SET_RGB;
-    PROG.m_prog[pc++] = 0xFF;
-    PROG.m_prog[pc++] = 0x00;
-    PROG.m_prog[pc++] = 0xFF;
 
-    PROG.m_prog[pc++] = OP_MOV;
-    PROG.m_prog[pc++] = 0x08;
-    PROG.m_prog[pc++] = 0x00;
-    PROG.m_prog[pc++] = 0x00;
+#define NEW_OP(op, a1, a2, a3) \
+    PROG.m_prog[pc++] = op; \
+    PROG.m_prog[pc++] = a1; \
+    PROG.m_prog[pc++] = a2; \
+    PROG.m_prog[pc++] = a3; \
 
-    PROG.m_prog[pc++] = OP_PIX_N;
-    PROG.m_prog[pc++] = 0x08;
-    PROG.m_prog[pc++] = 0x05;
-    PROG.m_prog[pc++] = 0x00;
-
-    PROG.m_prog[pc++] = OP_PIX_N;
-    PROG.m_prog[pc++] = 0x09;
-    PROG.m_prog[pc++] = 0x05;
-    PROG.m_prog[pc++] = 0x00;
-
-    PROG.m_prog[pc++] = OP_PIX_N;
-    PROG.m_prog[pc++] = 0x0A;
-    PROG.m_prog[pc++] = 0x05;
-    PROG.m_prog[pc++] = 0x00;
-
-    PROG.m_prog[pc++] = OP_TPHASE;
-    PROG.m_prog[pc++] = 0x04;
-    PROG.m_prog[pc++] = 0x1F;
-    PROG.m_prog[pc++] = 0x00;
-
-    PROG.m_prog[pc++] = OP_SIN;
-    PROG.m_prog[pc++] = 0x04;
-    PROG.m_prog[pc++] = 0x04;
-    PROG.m_prog[pc++] = 0x00;
-
-    PROG.m_prog[pc++] = OP_MULF;
-    PROG.m_prog[pc++] = 0x04;
-    PROG.m_prog[pc++] = 0x60;
-    PROG.m_prog[pc++] = 0x00;
-
-    PROG.m_prog[pc++] = OP_ADDF;
-    PROG.m_prog[pc++] = 0x04;
-    PROG.m_prog[pc++] = 0x30;
-    PROG.m_prog[pc++] = 0x00;
-
-    PROG.m_prog[pc++] = OP_SET;
-    PROG.m_prog[pc++] = 0x05;
-    PROG.m_prog[pc++] = 0xFF;
-    PROG.m_prog[pc++] = 0xFF;
-
-    PROG.m_prog[pc++] = OP_HSV;
-    PROG.m_prog[pc++] = 0x04;
-    PROG.m_prog[pc++] = 0x05;
-    PROG.m_prog[pc++] = 0x05;
-
-    PROG.m_prog[pc++] = OP_PIX_N;
-    PROG.m_prog[pc++] = 0x00;
-    PROG.m_prog[pc++] = 0x03;
-    PROG.m_prog[pc++] = 0x00;
-
-    PROG.m_prog[pc++] = OP_SET_HSV;
-    PROG.m_prog[pc++] = 0x7F;
-    PROG.m_prog[pc++] = 0x7F;
-    PROG.m_prog[pc++] = 0xFF;
-
-    PROG.m_prog[pc++] = OP_PIX_N;
-    PROG.m_prog[pc++] = 0x00;
-    PROG.m_prog[pc++] = 0x02;
-    PROG.m_prog[pc++] = 0x00;
-
-    PROG.m_prog[pc++] = OP_RET;
-    PROG.m_prog[pc++] = 0x00;
-    PROG.m_prog[pc++] = 0x00;
-    PROG.m_prog[pc++] = 0x00;
+    NEW_OP(OP_SET_RGB, 0xFF, 0x00, 0xFF);
+    NEW_OP(OP_MOV,     0x08, 0x00, 0x00);
+    NEW_OP(OP_PIX_N,   0x08, 0x05, 0x00);
+    NEW_OP(OP_PIX_N,   0x09, 0x05, 0x00);
+    NEW_OP(OP_PIX_N,   0x0A, 0x05, 0x00);
+    NEW_OP(OP_TPHASE,  0x04, 0x1F, 0x00);
+    NEW_OP(OP_SIN,     0x04, 0x04, 0x00);
+    NEW_OP(OP_MULF,    0x04, 0x60, 0x00);
+    NEW_OP(OP_ADDF,    0x04, 0x30, 0x00);
+    NEW_OP(OP_SET,     0x05, 0xFF, 0xFF);
+    NEW_OP(OP_HSV,     0x04, 0x05, 0x05);
+    NEW_OP(OP_PIX_N,   0x00, 0x03, 0x00);
+    NEW_OP(OP_SET_HSV, 0x7F, 0x7F, 0xFF);
+    NEW_OP(OP_PIX_N,   0x00, 0x02, 0x00);
+    NEW_OP(OP_RET,     0x00, 0x00, 0x00);
 
     PROG.m_num_pixels = 160;
     PROG.m_pix_offs   = 1;
@@ -558,55 +557,29 @@ void loop() {
     unsigned long start_t = micros();
     exec_prog();
     pixels.show();
+
     unsigned long end_t = micros();
 
-    if (counter % 30 == 0)
+    if (Serial.available() > 0)
+    {
+        char c  = Serial.read();
+        if (c == '!')
+        {
+            Serial.println("BEGIN");
+            Serial.flush();
+        }
+
+        read_serial_buffer();
+
+        Serial.println("END");
+        Serial.flush();
+    }
+
+    if (counter % 60 == 0)
     {
         Serial.print("frame: ");
         Serial.println(end_t - start_t);
     }
 
     counter++;
-//  offs += 0.01;
-//  offs = fract(offs);
-//  float rgb[3] = { 0.0, 0.0, 0.0 };
-//
-//  for (int i = 0; i < NUMPIXELS; i++) {
-//    float v = ((float) i) / ((float) NUMPIXELS);
-//    v = abs(fract(v + offs));
-//    hsv2rgb(v, 1.0, 1.0, rgb);
-//    pixels.setPixelColor(
-//      i,
-//      pixels.gamma32(
-//        pixels.Color(
-//          rgb[1] * 255.0,
-//          rgb[0] * 255.0,
-//          rgb[2] * 255.0)));
-//  }
-//
-//  pixels.show();
-//  delay(1000 / 30);
 }
-
-
-/*
-  #if 0
-  while (Serial.available() > 0)
-  {
-    char c = Serial.read();
-    if (c == 'x') {
-      mode = 1;
-      Serial.print("ok x\n");
-    } else if (c == 'y') {
-      mode = 2;
-      Serial.print("ok y\n");
-    }
-  }
-
-  hue += 0.1;
-  hue = fract(hue);
-  pixels.clear(); // Set all pixel colors to 'off'
-  #endif
-*/
-//      Serial.print(offs);
-//      Serial.println("");
