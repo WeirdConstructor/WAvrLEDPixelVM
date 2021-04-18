@@ -59,10 +59,12 @@ class WAvrProg {
 
 WAvrProg PROG;
 
-#define MAX_REGS (16 + MAX_INIT_REGS)
+#define MAX_RAND_COUNTERS 16
+#define MAX_GREGS 16
+#define MAX_REGS (MAX_GREGS + MAX_INIT_REGS)
 #define LAST_REG (MAX_REGS - 1)
 
-#define REG_TIME_S  (LAST_REG)
+//#define REG_TIME_S  (LAST_REG)
 //#define REG_PIXEL_F (LAST_REG - 1)
 //#define REG_FRAME   (LAST_REG - 2)
 //#define REG_TIME_F  (LAST_REG - 3)
@@ -70,18 +72,30 @@ WAvrProg PROG;
 class WAvrVMContext {
     public:
         uint32_t  m_regs[MAX_REGS];
+        uint32_t  m_rand_counters[MAX_RAND_COUNTERS];
+        float     m_slop_regs[MAX_RAND_COUNTERS];
+        float     m_slop_incs[MAX_RAND_COUNTERS];
 
         WAvrVMContext()
         {
             for (int i = 0; i < MAX_REGS; i++)
                 m_regs[i] = 0;
+
+            for (int i = 0; i < MAX_RAND_COUNTERS; i++)
+                m_rand_counters[i] = 0;
+
+            for (int i = 0; i < MAX_RAND_COUNTERS; i++)
+                m_slop_regs[i] = 0.0;
+
+            for (int i = 0; i < MAX_RAND_COUNTERS; i++)
+                m_slop_incs[i] = 0.0;
         }
 
         void load_prog_regs()
         {
-            for (int i = 8; i < (8 + MAX_INIT_REGS); i++)
+            for (int i = MAX_GREGS; i < MAX_REGS; i++)
             {
-                m_regs[i] = PROG.m_init_regs[i - 8];
+                m_regs[i] = PROG.m_init_regs[i - MAX_GREGS];
             }
         }
 };
@@ -140,7 +154,11 @@ WAvrVMContext CTX;
 #define OP_SET      0x01
 #define OP_MOV      0x02
 #define OP_LDREG    0x03
+#define OP_IMAP     0x04
+#define OP_FMAP     0x05
 
+#define OP_SLOPE    0x08
+#define OP_RAND     0x09
 #define OP_TPHASE   0x0A
 
 #define OP_ADD      0x30
@@ -172,6 +190,7 @@ uint8_t  *init_prog = &PROG.m_prog[0];
 uint32_t *regs = &CTX.m_regs[0];
 
 uint16_t counter = 0;
+uint32_t counter2 = 0;
 
 void exec_prog() {
     uint8_t *prog = init_prog;
@@ -179,9 +198,11 @@ void exec_prog() {
     bool prog_runs = true;
 
     uint32_t a = 0, b = 0, c = 0, d = 0;
-    float ftmp = 0.0;
+    float ftmp = 0.0, ftmp2 = 0.0;
 
     uint8_t pixel_idx = PROG.m_pix_offs;
+
+    uint32_t cur_time = millis();
 
     while (prog_runs)
     {
@@ -195,6 +216,47 @@ void exec_prog() {
             case OP_MOV:
                 LD_REGS1();
                 SV_REG(a);
+                break;
+
+            case OP_RAND:
+                LD_PROG_O_2();
+
+                d = (a & 0xF0) >> 4;
+                c = cur_time - CTX.m_rand_counters[d];
+
+                // calculate the recalc-time:
+                b *= 50;
+                b *= (a & 0x0F) + 1;
+
+                ftmp = CTX.m_slop_regs[d];
+                ftmp += ((float) c) * CTX.m_slop_incs[d];
+
+                if (ftmp > 1.0) ftmp = 1.0;
+                if (ftmp < 0.0) ftmp = 0.0;
+
+                if (c > b)
+                {
+                    CTX.m_slop_regs[d] = ftmp;
+
+                    CTX.m_rand_counters[d] = cur_time;
+
+                    ftmp2 = ((float) random(0, 65535)) / 65535.0;
+
+                    ftmp2 = ftmp2 - CTX.m_slop_regs[d];
+                    ftmp2 /= b;
+
+                    CTX.m_slop_incs[d] = ftmp2;
+                    c = b; // set c for the inc-multiplication below
+                }
+
+                // if (counter++ % 10 == 0)
+                // {
+                //     Serial.print(d);
+                //     Serial.print(": ");
+                //     Serial.println(ftmp);
+                // }
+
+                SV_F_REG(ftmp);
                 break;
 
             case OP_ADD:
@@ -306,7 +368,7 @@ void exec_prog() {
                 LD_PROG_O_2();
                 a = (uint32_t) ((a << 8) | b);
                 SV_F_REG(
-                    (((float) (((uint32_t) millis()) % a))
+                    (((float) (cur_time % a))
                      / ((float) a)));
                 break;
 
@@ -329,7 +391,23 @@ void exec_prog() {
                         (uint8_t)  (FR_GET(c) * 255.0));
                 break;
 
+            case OP_IMAP:
+                LD_PROG_O_2();
+                c = a; // min
+                d = b; // max
+                LD_REGS0_1();
+                SV_REG((int) round(((float) c) + FR_GET(a) * ((float) (d - c))));
+                break;
+
+            case OP_FMAP:
+                LD_REGS0_3();
+                ftmp = FR_GET(b);
+                SV_REG((int) round(b + FR_GET(a) * (c - b)));
+                break;
+
             case OP_LDREG:
+                LD_REGS1();
+                SV_REG(regs[a % MAX_REGS]);
                 break;
 
             case OP_SET_RGB:
@@ -526,21 +604,31 @@ void setup() {
     PROG.m_prog[pc++] = a2; \
     PROG.m_prog[pc++] = a3; \
 
-    NEW_OP(OP_SET_RGB, 0xFF, 0x00, 0xFF);
-    NEW_OP(OP_MOV,     0x08, 0x00, 0x00);
-    NEW_OP(OP_PIX_N,   0x08, 0x05, 0x00);
-    NEW_OP(OP_PIX_N,   0x09, 0x05, 0x00);
-    NEW_OP(OP_PIX_N,   0x0A, 0x05, 0x00);
-    NEW_OP(OP_TPHASE,  0x04, 0x1F, 0x00);
-    NEW_OP(OP_SIN,     0x04, 0x04, 0x00);
-    NEW_OP(OP_MULF,    0x04, 0x60, 0x00);
-    NEW_OP(OP_ADDF,    0x04, 0x30, 0x00);
+//    NEW_OP(OP_SET_RGB, 0xFF, 0x00, 0xFF);
+//    NEW_OP(OP_MOV,     0x08, 0x00, 0x00);
+//    NEW_OP(OP_PIX_N,   0x08, 0x05, 0x00);
+//    NEW_OP(OP_PIX_N,   0x09, 0x05, 0x00);
+//    NEW_OP(OP_PIX_N,   0x0A, 0x05, 0x00);
+//    NEW_OP(OP_MULF,    0x04, 0x60, 0x00);
+//    NEW_OP(OP_ADDF,    0x04, 0x30, 0x00);
+//    NEW_OP(OP_HSV,     0x04, 0x05, 0x05);
+//    NEW_OP(OP_PIX_N,   0x00, 0x03, 0x00);
+//    NEW_OP(OP_SET_HSV, 0x7F, 0x7F, 0xFF);
+//    //NEW_OP(OP_RAND,    0x07, 0x10, 0x40);
+
     NEW_OP(OP_SET,     0x05, 0xFF, 0xFF);
-    NEW_OP(OP_HSV,     0x04, 0x05, 0x05);
-    NEW_OP(OP_PIX_N,   0x00, 0x03, 0x00);
-    NEW_OP(OP_SET_HSV, 0x7F, 0x7F, 0xFF);
-    NEW_OP(OP_PIX_N,   0x00, 0x02, 0x00);
+    NEW_OP(OP_SET,     0x04, 0x7F, 0xFF);
+    NEW_OP(OP_RAND,    0x06, 0x10, 0x3F);
+    NEW_OP(OP_HSV,     0x06, 0x04, 0x05);
+    NEW_OP(OP_PIX_N,   0x00, 0x05, 0x00);
     NEW_OP(OP_RET,     0x00, 0x00, 0x00);
+
+///    NEW_OP(OP_TPHASE,  0x04, 0x1F, 0x00);
+///    NEW_OP(OP_SIN,     0x04, 0x04, 0x00);
+///    NEW_OP(OP_IMAP,    0x04, 0x10, 0x12);
+///    NEW_OP(OP_LDREG,   0x00, 0x04, 0x00);
+///    NEW_OP(OP_PIX_N,   0x00, 0x10, 0x00);
+///    NEW_OP(OP_RET,     0x00, 0x00, 0x00);
 
     PROG.m_num_pixels = 160;
     PROG.m_pix_offs   = 1;
