@@ -1,3 +1,5 @@
+#include <SoftwareSerial.h>
+
 // NeoPixel Ring simple sketch (c) 2013 Shae Erisson
 // Released under the GPLv3 license to match the rest of the
 // Adafruit NeoPixel library
@@ -21,6 +23,7 @@ Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
 #define DELAYVAL 100 // Time (in milliseconds) to pause between pixels
 
+SoftwareSerial softSerial(10, 11); // RX, TX
 
 float fract(float x) {
   return x - int(x);
@@ -485,31 +488,80 @@ char SERIAL_BUFFER[21];
 int serial_buf_ptr = 0;
 int serial_rd_ptr = 0;
 
-void read_serial_buffer()
+/*
+
+Data Protocol:
+
+Both parties ignore CR LF.
+
+Handshake:
+
+    Client sends:   '!'
+    Server answers: 'S'
+    If Server receives a '.', it sends an 'E'.
+    Server any other char received: '?'
+
+    - Server repeats 'S' if another '!' is received
+    - Client needs to repeat '!' if no 'S' is received in 1 second
+    or a '?' is received.
+
+
+    Prog line:
+
+    Client sends:    '#' <prog index> <command> <arg1> <arg2> <arg3> <bcc>
+    Server answers:  '@'
+    Server bad bcc response: '?'
+    Server receives no '#': '?'
+
+    - If server receives invalid bcc, it sends a '?'
+    - If server receives a corrent bcc, it sends a '@'
+    - If client does not receive an '@' within 1 second
+    or receives a '?', it retransmit the command.
+
+    End of input:
+
+    Client sends:   '.'
+    Server answers: 'E'
+    Server any other char received: '?'
+
+    - If client does not receive 'E' or a '?' it repeats '.'
+    until it makes sure the server understood.
+    - Server needs to send an 'E' also if it receives an '.'
+    without a prior '!'.
+
+ */
+void read_serial_buffer(bool soft)
 {
     while (true)
     {
-        char c = Serial.read();
+        char c = ' ';
+        if (soft) c = softSerial.read();
+        else      c = Serial.read();
 
         if (c == -1)
+            continue;
+
+        if (serial_buf_ptr <= 0
+                && (c == '\r' || c == '\n' || c == ' '))
+            continue;
+
+        if (c == '!')
         {
-            delay(50);
+            if (soft) softSerial.println("S");
+            else      Serial.println("S");
+
             continue;
         }
 
-        // Serial.print("[");
-        // Serial.print((int) c);
-        // Serial.println("]");
-
-        if (serial_buf_ptr <= 0
-            && (c == '\r' || c == '\n' || c == ' '))
-            continue;
-
-        if (c == '\r' || c == '\n')
+        if (c == '.')
         {
             SERIAL_BUFFER[serial_buf_ptr] = '\0';
             parse_serial_buffer();
             serial_buf_ptr = 0;
+
+            if (soft) softSerial.println("E");
+            else      Serial.println("E");
+
             return;
         }
 
@@ -527,14 +579,14 @@ bool test_next_str(const char *test, int &len)
     {
         int tst_c = test[i - serial_rd_ptr];
         char c = SERIAL_BUFFER[i];
-//        Serial.print(i);
-//        Serial.print(":");
-//        Serial.print(c);
-//        Serial.print(" ");
-//        Serial.print((char) tst_c);
-//        Serial.print(" ");
-//        Serial.print(serial_rd_ptr);
-//        Serial.println();
+        //        Serial.print(i);
+        //        Serial.print(":");
+        //        Serial.print(c);
+        //        Serial.print(" ");
+        //        Serial.print((char) tst_c);
+        //        Serial.print(" ");
+        //        Serial.print(serial_rd_ptr);
+        //        Serial.println();
 
         if (isWhitespace(c))
             return false;
@@ -556,7 +608,7 @@ void skip_ws()
     {
         if (isWhitespace(SERIAL_BUFFER[serial_rd_ptr]))
         {
-//            Serial.println("SKIPWS");
+            //            Serial.println("SKIPWS");
             serial_rd_ptr++;
         }
         else
@@ -590,6 +642,7 @@ void setup() {
     // END of Trinket-specific code.
 
     Serial.begin(9600);
+    softSerial.begin(9600);
 
     // INITIALIZE NeoPixel strip object (REQUIRED)
     pixels.begin();
@@ -604,31 +657,41 @@ void setup() {
     PROG.m_prog[pc++] = a2; \
     PROG.m_prog[pc++] = a3; \
 
-//    NEW_OP(OP_SET_RGB, 0xFF, 0x00, 0xFF);
-//    NEW_OP(OP_MOV,     0x08, 0x00, 0x00);
-//    NEW_OP(OP_PIX_N,   0x08, 0x05, 0x00);
-//    NEW_OP(OP_PIX_N,   0x09, 0x05, 0x00);
-//    NEW_OP(OP_PIX_N,   0x0A, 0x05, 0x00);
-//    NEW_OP(OP_MULF,    0x04, 0x60, 0x00);
-//    NEW_OP(OP_ADDF,    0x04, 0x30, 0x00);
-//    NEW_OP(OP_HSV,     0x04, 0x05, 0x05);
-//    NEW_OP(OP_PIX_N,   0x00, 0x03, 0x00);
-//    NEW_OP(OP_SET_HSV, 0x7F, 0x7F, 0xFF);
-//    //NEW_OP(OP_RAND,    0x07, 0x10, 0x40);
+    //    NEW_OP(OP_SET_RGB, 0xFF, 0x00, 0xFF);
+    //    NEW_OP(OP_MOV,     0x08, 0x00, 0x00);
+    //    NEW_OP(OP_PIX_N,   0x08, 0x05, 0x00);
+    //    NEW_OP(OP_PIX_N,   0x09, 0x05, 0x00);
+    //    NEW_OP(OP_PIX_N,   0x0A, 0x05, 0x00);
+    //    NEW_OP(OP_MULF,    0x04, 0x60, 0x00);
+    //    NEW_OP(OP_ADDF,    0x04, 0x30, 0x00);
+    //    NEW_OP(OP_HSV,     0x04, 0x05, 0x05);
+    //    NEW_OP(OP_PIX_N,   0x00, 0x03, 0x00);
+    //    NEW_OP(OP_SET_HSV, 0x7F, 0x7F, 0xFF);
+    //    //NEW_OP(OP_RAND,    0x07, 0x10, 0x40);
 
     NEW_OP(OP_SET,     0x05, 0xFF, 0xFF);
     NEW_OP(OP_SET,     0x04, 0x7F, 0xFF);
+
     NEW_OP(OP_RAND,    0x06, 0x10, 0x3F);
     NEW_OP(OP_HSV,     0x06, 0x04, 0x05);
-    NEW_OP(OP_PIX_N,   0x00, 0x05, 0x00);
+    NEW_OP(OP_PIX_N,   0x00, 0x0F, 0x00);
+
+    NEW_OP(OP_RAND,    0x06, 0x20, 0x3F);
+    NEW_OP(OP_HSV,     0x06, 0x04, 0x05);
+    NEW_OP(OP_PIX_N,   0x00, 0x0F, 0x00);
+
+    NEW_OP(OP_RAND,    0x06, 0x30, 0x3F);
+    NEW_OP(OP_HSV,     0x06, 0x04, 0x05);
+    NEW_OP(OP_PIX_N,   0x00, 0x0F, 0x00);
+
     NEW_OP(OP_RET,     0x00, 0x00, 0x00);
 
-///    NEW_OP(OP_TPHASE,  0x04, 0x1F, 0x00);
-///    NEW_OP(OP_SIN,     0x04, 0x04, 0x00);
-///    NEW_OP(OP_IMAP,    0x04, 0x10, 0x12);
-///    NEW_OP(OP_LDREG,   0x00, 0x04, 0x00);
-///    NEW_OP(OP_PIX_N,   0x00, 0x10, 0x00);
-///    NEW_OP(OP_RET,     0x00, 0x00, 0x00);
+    ///    NEW_OP(OP_TPHASE,  0x04, 0x1F, 0x00);
+    ///    NEW_OP(OP_SIN,     0x04, 0x04, 0x00);
+    ///    NEW_OP(OP_IMAP,    0x04, 0x10, 0x12);
+    ///    NEW_OP(OP_LDREG,   0x00, 0x04, 0x00);
+    ///    NEW_OP(OP_PIX_N,   0x00, 0x10, 0x00);
+    ///    NEW_OP(OP_RET,     0x00, 0x00, 0x00);
 
     PROG.m_num_pixels = 160;
     PROG.m_pix_offs   = 1;
@@ -638,6 +701,11 @@ void setup() {
     PROG.set_reg_hsv(2, 0x07FF, 0xFF, 0xFF);
 
     CTX.load_prog_regs();
+
+    Serial.println("WAVR VM LED STARTED");
+    Serial.flush();
+    softSerial.println("WAVR VM LED STARTED");
+    softSerial.flush();
 }
 
 void loop() {
@@ -650,23 +718,45 @@ void loop() {
 
     if (Serial.available() > 0)
     {
-        char c  = Serial.read();
+        char c = Serial.read();
+
         if (c == '!')
         {
-            Serial.println("BEGIN");
-            Serial.flush();
+            Serial.println("S");
+
+            read_serial_buffer(false);
+
+            Serial.println("E");
         }
-
-        read_serial_buffer();
-
-        Serial.println("END");
-        Serial.flush();
+        else if (c == '.')
+        {
+            Serial.println("E");
+        }
     }
 
-    if (counter % 60 == 0)
+    if (softSerial.available() > 0)
     {
-        Serial.print("frame: ");
-        Serial.println(end_t - start_t);
+        char c = softSerial.read();
+
+        if (c == '!')
+        {
+            softSerial.println("S");
+
+            read_serial_buffer(true);
+        }
+        else if (c == '.')
+        {
+            softSerial.println("E");
+        }
+    }
+
+    if (counter % 120 == 0)
+    {
+        int fps = 1000000 / (end_t - start_t);
+        softSerial.print("fps: ");
+        softSerial.println(fps);
+        Serial.print("fps: ");
+        Serial.println(fps);
     }
 
     counter++;
