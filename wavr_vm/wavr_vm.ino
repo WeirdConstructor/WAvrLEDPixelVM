@@ -530,45 +530,75 @@ Handshake:
     without a prior '!'.
 
  */
-void read_serial_buffer(bool soft)
+void sendAtCommand(const char *cmd, char postFix, bool recvResponse)
 {
-    while (true)
+    char buf[20];
+    char rcv[20];
+    char rcv2[20];
+    size_t l = 0, l2 = 0;
+
+    int i = 0;
+    while (cmd[i] != '\0')
     {
-        char c = ' ';
-        if (soft) c = softSerial.read();
-        else      c = Serial.read();
+        buf[i] = cmd[i];
+        i++;
+    }
 
-        if (c == -1)
-            continue;
+    if (postFix > 0)
+        buf[i++] = postFix;
+    buf[i++] = '\r';
+    buf[i++] = '\n';
 
-        if (serial_buf_ptr <= 0
-                && (c == '\r' || c == '\n' || c == ' '))
-            continue;
+    softSerial.write(buf, i);
+    softSerial.flush();
 
-        if (c == '!')
+    l = softSerial.readBytesUntil('\n', rcv, 16);
+    if (l > 0 && rcv[l - 1] == '\r')
+        l--;
+
+    if (recvResponse)
+    {
+        l2 = softSerial.readBytesUntil('\n', rcv2, 16);
+        if (l2 > 0 && rcv2[l2 - 1] == '\r')
+            l2--;
+    }
+
+    Serial.print("HC05(");
+    Serial.write(buf, i - 2);
+    Serial.print(")> ");
+    Serial.flush();
+
+    Serial.write(rcv, l);
+    Serial.println("");
+    Serial.flush();
+
+    if (l2 > 0)
+    {
+        Serial.print("HC05>>");
+        Serial.write(rcv2, l2);
+        Serial.println("");
+        Serial.flush();
+    }
+}
+
+char waitNextCharSerial()
+{
+    while (!Serial.available())
+        delay(25);
+    return Serial.read();
+}
+
+void skip_ws()
+{
+    while (serial_rd_ptr < SERIAL_BUFFER_SIZE)
+    {
+        if (isWhitespace(SERIAL_BUFFER[serial_rd_ptr]))
         {
-            if (soft) softSerial.println("S");
-            else      Serial.println("S");
-
-            continue;
+            //            Serial.println("SKIPWS");
+            serial_rd_ptr++;
         }
-
-        if (c == '.')
-        {
-            SERIAL_BUFFER[serial_buf_ptr] = '\0';
-            parse_serial_buffer();
-            serial_buf_ptr = 0;
-
-            if (soft) softSerial.println("E");
-            else      Serial.println("E");
-
+        else
             return;
-        }
-
-        if (serial_buf_ptr >= SERIAL_BUFFER_SIZE)
-            serial_buf_ptr = 0;
-
-        SERIAL_BUFFER[serial_buf_ptr++] = c;
     }
 }
 
@@ -602,20 +632,6 @@ bool test_next_str(const char *test, int &len)
     }
 }
 
-void skip_ws()
-{
-    while (serial_rd_ptr < SERIAL_BUFFER_SIZE)
-    {
-        if (isWhitespace(SERIAL_BUFFER[serial_rd_ptr]))
-        {
-            //            Serial.println("SKIPWS");
-            serial_rd_ptr++;
-        }
-        else
-            return;
-    }
-}
-
 void parse_serial_buffer()
 {
     serial_rd_ptr = 0;
@@ -630,6 +646,64 @@ void parse_serial_buffer()
     {
         Serial.println("FOUND!");
         Serial.println(len);
+    }
+}
+
+void read_serial_buffer(bool soft)
+{
+    while (true)
+    {
+        char c = ' ';
+        if (soft) c = softSerial.read();
+        else      c = Serial.read();
+
+        if (c == -1)
+            continue;
+
+        if (serial_buf_ptr <= 0
+                && (c == '\r' || c == '\n' || c == ' '))
+            continue;
+
+        if (c == '!')
+        {
+            if (soft) softSerial.println("S");
+            else      Serial.println("S");
+
+            continue;
+        }
+
+        if (!soft && c == '#')
+        {
+            char postFix = waitNextCharSerial();
+
+            softSerial.begin(38400);
+
+            sendAtCommand("AT", 0, false);
+            sendAtCommand("AT+NAME?", 0, true);
+            sendAtCommand("AT+NAME=WAVRVM", postFix, false);
+            sendAtCommand("AT+NAME?", 0, true);
+
+            softSerial.begin(9600);
+            Serial.println("AT DONE");
+            continue;
+        }
+
+        if (c == '.')
+        {
+            SERIAL_BUFFER[serial_buf_ptr] = '\0';
+            parse_serial_buffer();
+            serial_buf_ptr = 0;
+
+            if (soft) softSerial.println("E");
+            else      Serial.println("E");
+
+            return;
+        }
+
+        if (serial_buf_ptr >= SERIAL_BUFFER_SIZE)
+            serial_buf_ptr = 0;
+
+        SERIAL_BUFFER[serial_buf_ptr++] = c;
     }
 }
 
