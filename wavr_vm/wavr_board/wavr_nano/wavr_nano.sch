@@ -1,0 +1,269 @@
+EESchema Schematic File Version 4
+EELAYER 30 0
+EELAYER END
+$Descr A4 11693 8268
+encoding utf-8
+Sheet 1 1
+Title ""
+Date ""
+Rev ""
+Comp ""
+Comment1 ""
+Comment2 ""
+Comment3 ""
+Comment4 ""
+$EndDescr
+$Comp
+L sortiment:Arduino_Nano_v2.x A1
+U 1 1 6087D71C
+P 3800 3000
+F 0 "A1" V 3754 1957 50  0000 R CNN
+F 1 "Arduino_Nano_v2.x" V 3845 1957 50  0000 R CNN
+F 2 "Module:Arduino_Nano" H 3800 3000 50  0001 C CIN
+F 3 "https://www.arduino.cc/en/uploads/Main/ArduinoNanoManual23.pdf" H 3800 3000 50  0001 C CNN
+	1    3800 3000
+	0    1    1    0   
+$EndComp
+$Comp
+L Connector:Conn_01x03_Male LED1
+U 1 1 6087F2B8
+P 4550 950
+F 0 "LED1" V 4612 1094 50  0000 L CNN
+F 1 "WS2812 Connection" V 4703 1094 50  0000 L CNN
+F 2 "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Horizontal" H 4550 950 50  0001 C CNN
+F 3 "~" H 4550 950 50  0001 C CNN
+	1    4550 950 
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:R R1
+U 1 1 60883031
+P 4100 1950
+F 0 "R1" H 4030 1904 50  0000 R CNN
+F 1 "470R" H 4030 1995 50  0000 R CNN
+F 2 "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal" V 4030 1950 50  0001 C CNN
+F 3 "~" H 4100 1950 50  0001 C CNN
+	1    4100 1950
+	-1   0    0    1   
+$EndComp
+Wire Wire Line
+	4100 1800 4100 1550
+Wire Wire Line
+	4100 1550 4550 1550
+Wire Wire Line
+	4550 1150 4550 1550
+Wire Wire Line
+	3600 1000 3600 1100
+Wire Wire Line
+	3600 1100 3750 1100
+Wire Wire Line
+	4250 1100 4250 1150
+Wire Wire Line
+	4250 1150 4450 1150
+Wire Wire Line
+	3600 1500 3600 1400
+Wire Wire Line
+	3600 1400 3750 1400
+Wire Wire Line
+	4650 1400 4650 1150
+$Comp
+L Device:R R2
+U 1 1 608A4B4E
+P 2300 2450
+F 0 "R2" H 2370 2496 50  0000 L CNN
+F 1 "2.2k" H 2370 2405 50  0000 L CNN
+F 2 "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal" V 2230 2450 50  0001 C CNN
+F 3 "~" H 2300 2450 50  0001 C CNN
+	1    2300 2450
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	2300 2600 2300 2650
+Wire Wire Line
+	2450 2250 2300 2250
+Wire Wire Line
+	2300 2300 2300 2250
+Connection ~ 2300 2250
+$Comp
+L Device:R R3
+U 1 1 608A4EC5
+P 2600 2250
+F 0 "R3" V 2807 2250 50  0000 C CNN
+F 1 "1.1k" V 2716 2250 50  0000 C CNN
+F 2 "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal" V 2530 2250 50  0001 C CNN
+F 3 "~" H 2600 2250 50  0001 C CNN
+	1    2600 2250
+	0    -1   -1   0   
+$EndComp
+Wire Wire Line
+	3400 2500 3400 2150
+$Comp
+L Connector_Generic:Conn_02x01 J1
+U 1 1 608B9997
+P 2150 1100
+F 0 "J1" H 2200 1317 50  0000 C CNN
+F 1 "BT Prog Jumper" H 2200 1226 50  0000 C CNN
+F 2 "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical" H 2150 1100 50  0001 C CNN
+F 3 "~" H 2150 1100 50  0001 C CNN
+	1    2150 1100
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	2450 1100 3050 1100
+Connection ~ 3600 1100
+Wire Wire Line
+	1950 1100 1950 2000
+Wire Wire Line
+	2800 3100 2500 3100
+Wire Wire Line
+	2500 3100 2500 2650
+Wire Wire Line
+	2500 2650 2300 2650
+Connection ~ 2300 2650
+Wire Wire Line
+	4800 3200 5150 3200
+Wire Wire Line
+	5150 3200 5150 1750
+Wire Wire Line
+	1950 2000 1750 2000
+Wire Wire Line
+	5150 1750 1750 1750
+Wire Wire Line
+	3400 2150 1750 2150
+Wire Wire Line
+	2300 2250 1750 2250
+$Comp
+L sortiment:HC-05_SerialBT_AZDel BT1
+U 1 1 60891199
+P 1150 2400
+F 0 "BT1" H 1150 1445 50  0000 C CNN
+F 1 "HC-05_SerialBT_AZDel" H 1150 1536 50  0000 C CNN
+F 2 "sortiment:HC-05_SerialBT_AZDel" H 1150 1627 50  0000 C CNN
+F 3 "" H 1150 2400 50  0001 C CNN
+	1    1150 2400
+	-1   0    0    1   
+$EndComp
+Wire Wire Line
+	2300 2650 1800 2650
+Wire Wire Line
+	1800 2650 1800 1850
+Wire Wire Line
+	1800 1850 1750 1850
+Wire Wire Line
+	3300 2500 3300 2250
+Wire Wire Line
+	3300 2250 2750 2250
+NoConn ~ 550  2250
+NoConn ~ 3100 3500
+NoConn ~ 3200 3500
+NoConn ~ 3300 3500
+NoConn ~ 2800 3000
+NoConn ~ 3500 3500
+NoConn ~ 3400 3500
+NoConn ~ 3600 3500
+NoConn ~ 3700 3500
+NoConn ~ 3800 3500
+NoConn ~ 4000 3500
+NoConn ~ 4300 3500
+NoConn ~ 4400 3500
+NoConn ~ 4400 2500
+NoConn ~ 4300 2500
+NoConn ~ 4200 2500
+NoConn ~ 4000 2500
+NoConn ~ 3700 2500
+NoConn ~ 3600 2500
+NoConn ~ 3500 2500
+NoConn ~ 3200 2500
+NoConn ~ 3100 2500
+NoConn ~ 4800 3100
+$Comp
+L power:+5V #PWR0101
+U 1 1 608F23EA
+P 3600 1000
+F 0 "#PWR0101" H 3600 850 50  0001 C CNN
+F 1 "+5V" H 3615 1173 50  0000 C CNN
+F 2 "" H 3600 1000 50  0001 C CNN
+F 3 "" H 3600 1000 50  0001 C CNN
+	1    3600 1000
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+5V #PWR0102
+U 1 1 608F2C88
+P 5050 2900
+F 0 "#PWR0102" H 5050 2750 50  0001 C CNN
+F 1 "+5V" H 5065 3073 50  0000 C CNN
+F 2 "" H 5050 2900 50  0001 C CNN
+F 3 "" H 5050 2900 50  0001 C CNN
+	1    5050 2900
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR0103
+U 1 1 608FB6CC
+P 3600 1500
+F 0 "#PWR0103" H 3600 1250 50  0001 C CNN
+F 1 "GND" H 3605 1327 50  0000 C CNN
+F 2 "" H 3600 1500 50  0001 C CNN
+F 3 "" H 3600 1500 50  0001 C CNN
+	1    3600 1500
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR0104
+U 1 1 608FF48B
+P 2300 2650
+F 0 "#PWR0104" H 2300 2400 50  0001 C CNN
+F 1 "GND" H 2305 2477 50  0000 C CNN
+F 2 "" H 2300 2650 50  0001 C CNN
+F 3 "" H 2300 2650 50  0001 C CNN
+	1    2300 2650
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	5050 2900 4800 2900
+$Comp
+L Device:CP C1
+U 1 1 60906276
+P 3750 1250
+F 0 "C1" H 3868 1296 50  0000 L CNN
+F 1 "470uF" H 3868 1205 50  0000 L CNN
+F 2 "Capacitor_THT:CP_Radial_D10.0mm_P5.00mm" H 3788 1100 50  0001 C CNN
+F 3 "~" H 3750 1250 50  0001 C CNN
+	1    3750 1250
+	1    0    0    -1  
+$EndComp
+Connection ~ 3750 1100
+Connection ~ 3750 1400
+Wire Wire Line
+	3750 1100 4250 1100
+Wire Wire Line
+	3750 1400 4650 1400
+$Comp
+L Connector_Generic:Conn_02x01 J2
+U 1 1 6090F45D
+P 3050 1300
+F 0 "J2" V 3054 1380 50  0000 L CNN
+F 1 "Conn_02x01" V 3145 1380 50  0000 L CNN
+F 2 "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical" H 3050 1300 50  0001 C CNN
+F 3 "~" H 3050 1300 50  0001 C CNN
+	1    3050 1300
+	0    1    1    0   
+$EndComp
+Connection ~ 3050 1100
+Wire Wire Line
+	3050 1100 3600 1100
+Wire Wire Line
+	3050 1600 3400 1600
+Wire Wire Line
+	3400 1600 3400 1400
+Wire Wire Line
+	3400 1400 3600 1400
+Connection ~ 3600 1400
+Wire Wire Line
+	3800 2500 3800 2100
+Wire Wire Line
+	3800 2100 4100 2100
+NoConn ~ 4100 2500
+NoConn ~ 3900 2500
+$EndSCHEMATC

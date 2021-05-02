@@ -1,0 +1,3 @@
+(fp_lib_table
+  (lib (name sortiment)(type KiCad)(uri /home/weictr/devel/projekte/Sortiment/Footprints.pretty)(options "")(descr ""))
+)
