@@ -154,40 +154,50 @@ WAvrVMContext CTX;
 #define OP_WIDTH 4
 #define SKIP_PROG prog = prog + OP_WIDTH;
 
-#define OP_SET      0x01
-#define OP_MOV      0x02
-#define OP_LDREG    0x03
-#define OP_IMAP     0x04
-#define OP_FMAP     0x05
+// Registers
+// - REG[00-15]: General Purpose Registers
+// - REG[16-47]: Initializable HSV Color Registers (Colors)
 
-#define OP_SLOPE    0x08
+#define OP_SET      0x01 // a = float(b | c)
+#define OP_MOV      0x02 // a = b
+#define OP_LDREG    0x03 // a = REG[b]
+#define OP_IMAP     0x04 // a = map_to_int_range(x: float(REG[a]), min: b, max: c)
+#define OP_FMAP     0x05 // a = map_to_flt_range(x: float(REG[a]), min: float(REG[b]), max: float(REG[c]))
+
+// b & 0xF0: Rand Counter Index [0-15]
+// c       : Recalc-Time (ms) = c * 50 * (b & 0x0F) + 1
+// a = float(incremental adjustment within recalc-time to rand 0.0 to 1.0)
 #define OP_RAND     0x09
+// (b << 8 | c): Phase length in ms
+// a = float(fractional phase)
 #define OP_TPHASE   0x0A
 
-#define OP_ADD      0x30
-#define OP_ADDF     0x31
-#define OP_MUL      0x32
-#define OP_MULF     0x33
-#define OP_DIV      0x34
-#define OP_DIVF     0x35
-#define OP_SUB      0x36
-#define OP_SUBF     0x37
+#define OP_SET_RGB  0x10 // 0 = rgb(a, b, c)
+#define OP_SET_HSV  0x11 // 0 = hsv(a, b, c)
+#define OP_HSV      0x12 // 0 = hsv(float(REG[a]), float(REG[b]), float(REG[c]))
+#define OP_RGB      0x13 // 0 = rgb(float(REG[a]), float(REG[b]), float(REG[c]))
 
-#define OP_FMOD     0x38
-#define OP_FMODF    0x39
+// P means: write pixel and advance to the next pixel
+#define OP_PIX_HSV  0x20 // P = hsv(float(REG[a]), float(REG[b]), float(REG[c]))
+#define OP_PIX_RGB  0x21 // P = rgb(float(REG[a]), float(REG[b]), float(REG[c]))
+#define OP_PIX      0x22 // P = color(REG[a])
+#define OP_PIX_N    0x23 // b times(P = color(REG[a]))
 
-#define OP_SIN      0x40
+#define OP_ADD      0x30 // a = REG[b] + REG[c]
+#define OP_ADDF     0x31 // a = float(float(REG[b]) + float(REG[c]))
+#define OP_MUL      0x32 // a = REG[b] * REG[c]
+#define OP_MULF     0x33 // a = float(float(REG[b]) * float(REG[c]))
+#define OP_DIV      0x34 // a = REG[b] / REG[c]
+#define OP_DIVF     0x35 // a = float(float(REG[b]) / float(REG[c]))
+#define OP_SUB      0x36 // a = REG[b] - REG[c]
+#define OP_SUBF     0x37 // a = float(float(REG[b]) - float(REG[c]))
 
-#define OP_SET_RGB  0x10
-#define OP_SET_HSV  0x11
-#define OP_HSV      0x12
-#define OP_RGB      0x13
-#define OP_PIX_HSV  0x20
-#define OP_PIX_RGB  0x21
-#define OP_PIX      0x22
-#define OP_PIX_N    0x23
+#define OP_FMOD     0x38 // a = float(REG[b]) % float(REG[c])
+#define OP_FMODF    0x39 // a = float(REG[a]) % float(b | c)
 
-#define OP_RET      0xFF
+#define OP_SIN      0x40 // a = float(sin(float(REG[b])))
+
+#define OP_RET      0xFF // Restart until all pixels have been written, or end cycle
 
 uint8_t  *init_prog = &PROG.m_prog[0];
 uint32_t *regs = &CTX.m_regs[0];
@@ -404,8 +414,9 @@ void exec_prog() {
 
             case OP_FMAP:
                 LD_REGS0_3();
-                ftmp = FR_GET(b);
-                SV_REG((int) round(b + FR_GET(a) * (c - b)));
+                ftmp  = FR_GET(b);
+                ftmp2 = FR_GET(c);
+                SV_F_REG(ftmp + FR_GET(a) * (ftmp2 - ftmp));
                 break;
 
             case OP_LDREG:
