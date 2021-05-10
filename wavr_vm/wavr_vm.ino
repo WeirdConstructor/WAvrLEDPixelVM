@@ -519,10 +519,9 @@ Handshake:
 
     Prog line:
 
-    Client sends:    '#' <prog index> <command> <arg1> <arg2> <arg3> <bcc>
+    Client sends:    <prog index> <command> <arg1> <arg2> <arg3> <bcc> '#'
     Server answers:  '@'
     Server bad bcc response: '?'
-    Server receives no '#': '?'
 
     - If server receives invalid bcc, it sends a '?'
     - If server receives a corrent bcc, it sends a '@'
@@ -599,13 +598,14 @@ char waitNextCharSerial()
     return Serial.read();
 }
 
-void skip_ws()
+void skip_ws(uint8_t &bcc)
 {
     while (serial_rd_ptr < SERIAL_BUFFER_SIZE)
     {
         if (isWhitespace(SERIAL_BUFFER[serial_rd_ptr]))
         {
             //            Serial.println("SKIPWS");
+            bcc ^= (uint8_t) SERIAL_BUFFER[serial_rd_ptr];
             serial_rd_ptr++;
         }
         else
@@ -613,13 +613,17 @@ void skip_ws()
     }
 }
 
-bool test_next_str(const char *test, int &len)
+bool test_next_str(const char *test, int &len, uint8_t &bcc)
 {
+    uint8_t cur_bcc = 0;
+
     // <= is ok, because SERIAL_BUFFER is one byte bigger than SERIAL_BUFFER_SIZE
     for (int i = serial_rd_ptr; i <= SERIAL_BUFFER_SIZE; i++)
     {
         int tst_c = test[i - serial_rd_ptr];
         char c = SERIAL_BUFFER[i];
+
+        cur_bcc ^= (uint8_t) c;
         //        Serial.print(i);
         //        Serial.print(":");
         //        Serial.print(c);
@@ -634,6 +638,7 @@ bool test_next_str(const char *test, int &len)
 
         if (tst_c == '\0')
         {
+            bcc ^= cur_bcc;
             len = i - serial_rd_ptr;
             serial_rd_ptr += len;
             return true;
@@ -643,21 +648,114 @@ bool test_next_str(const char *test, int &len)
     }
 }
 
-void parse_serial_buffer()
+struct ParseCmd
+{
+    uint8_t     prog_addr;
+    uint8_t     command;
+    uint8_t     arg1;
+    uint8_t     arg2;
+    uint8_t     arg3;
+};
+
+uint8_t parse_hex_byte(bool &ok, uint8_t &bcc)
+{
+    skip_ws(bcc);
+
+    uint8_t b           = 0;
+    bool    high_nibble = true;
+
+    // <= is ok, because SERIAL_BUFFER is one byte bigger than SERIAL_BUFFER_SIZE
+    for (int i = serial_rd_ptr; i <= SERIAL_BUFFER_SIZE; i++)
+    {
+        char c = SERIAL_BUFFER[i];
+        if (c >= '0' && c <= '9')
+            b |= c - '0';
+        else if (c >= 'a' && c <= 'f')
+            b |= c - 'a';
+        else if (c >= 'A' && c <= 'F')
+            b |= c - 'A';
+        else
+        {
+            ok = false;
+        }
+
+        bcc ^= (uint8_t) c;
+
+        if (high_nibble)
+        {
+            b = b << 4;
+            high_nibble = false;
+        }
+        else
+        {
+            ok = true;
+            return b;
+        }
+    }
+}
+
+bool parse_prog_command(ParseCmd &cmd)
 {
     serial_rd_ptr = 0;
 
-    skip_ws();
+    uint8_t bcc = 0;
 
-    Serial.print("BUF[");
-    Serial.print(SERIAL_BUFFER);
-    Serial.println("]");
+    bool ok = false;
+    cmd.prog_addr = parse_hex_byte(ok, bcc);
+    if (!ok)
+        return false;
+
     int len = 0;
-    if (test_next_str("PROG", len))
+         if (test_next_str("SET",     len, bcc)) cmd.command = OP_SET;
+    else if (test_next_str("MOV",     len, bcc)) cmd.command = OP_MOV;
+    else if (test_next_str("LDREG",   len, bcc)) cmd.command = OP_LDREG;
+    else if (test_next_str("IMAP",    len, bcc)) cmd.command = OP_IMAP;
+    else if (test_next_str("FMAP",    len, bcc)) cmd.command = OP_FMAP;
+    else if (test_next_str("RAND",    len, bcc)) cmd.command = OP_RAND;
+    else if (test_next_str("TPHASE",  len, bcc)) cmd.command = OP_TPHASE;
+    else if (test_next_str("SET_RGB", len, bcc)) cmd.command = OP_SET_RGB;
+    else if (test_next_str("SET_HSV", len, bcc)) cmd.command = OP_SET_HSV;
+    else if (test_next_str("HSV",     len, bcc)) cmd.command = OP_HSV;
+    else if (test_next_str("RGB",     len, bcc)) cmd.command = OP_RGB;
+    else if (test_next_str("PIX_HSV", len, bcc)) cmd.command = OP_PIX_HSV;
+    else if (test_next_str("PIX_RGB", len, bcc)) cmd.command = OP_PIX_RGB;
+    else if (test_next_str("PIX",     len, bcc)) cmd.command = OP_PIX;
+    else if (test_next_str("PIX_N",   len, bcc)) cmd.command = OP_PIX_N;
+    else if (test_next_str("ADD",     len, bcc)) cmd.command = OP_ADD;
+    else if (test_next_str("ADDF",    len, bcc)) cmd.command = OP_ADDF;
+    else if (test_next_str("MUL",     len, bcc)) cmd.command = OP_MUL;
+    else if (test_next_str("MULF",    len, bcc)) cmd.command = OP_MULF;
+    else if (test_next_str("DIV",     len, bcc)) cmd.command = OP_DIV;
+    else if (test_next_str("DIVF",    len, bcc)) cmd.command = OP_DIVF;
+    else if (test_next_str("SUB",     len, bcc)) cmd.command = OP_SUB;
+    else if (test_next_str("SUBF",    len, bcc)) cmd.command = OP_SUBF;
+    else if (test_next_str("FMOD",    len, bcc)) cmd.command = OP_FMOD;
+    else if (test_next_str("FMODF",   len, bcc)) cmd.command = OP_FMODF;
+    else if (test_next_str("SIN",     len, bcc)) cmd.command = OP_SIN;
+    else if (test_next_str("RET",     len, bcc)) cmd.command = OP_RET;
+    else
+        return false;
+
+    cmd.arg1 = parse_hex_byte(ok, bcc);
+    if (!ok)
+        return false;
+    cmd.arg2 = parse_hex_byte(ok, bcc);
+    if (!ok)
+        return false;
+    cmd.arg3 = parse_hex_byte(ok, bcc);
+    if (!ok)
+        return false;
+
+    if (serial_rd_ptr <= SERIAL_BUFFER_SIZE)
     {
-        Serial.println("FOUND!");
-        Serial.println(len);
+        uint8_t cmd_bcc = SERIAL_BUFFER[serial_rd_ptr];
+        if (cmd_bcc == bcc)
+            return true;
+        else
+            return false;
     }
+    else
+        return false;
 }
 
 void read_serial_buffer(bool soft)
@@ -683,7 +781,7 @@ void read_serial_buffer(bool soft)
             continue;
         }
 
-        if (!soft && c == '#')
+        if (!soft && c == '@')
         {
             char postFix = waitNextCharSerial();
 
@@ -699,12 +797,37 @@ void read_serial_buffer(bool soft)
             continue;
         }
 
-        if (c == '.')
+        if (c == '#')
         {
             SERIAL_BUFFER[serial_buf_ptr] = '\0';
-            parse_serial_buffer();
+            ParseCmd cmd;
+            if (parse_prog_command(cmd))
+            {
+                Serial.print("#:");
+                Serial.print(cmd.prog_addr);
+                Serial.print(", ");
+                Serial.print(cmd.command);
+                Serial.print(", ");
+                Serial.print(cmd.arg1);
+                Serial.print(", ");
+                Serial.print(cmd.arg2);
+                Serial.print(", ");
+                Serial.println(cmd.arg3);
+
+                if (soft) softSerial.println("@");
+                else      Serial.println("@");
+            }
+            else
+            {
+                if (soft) softSerial.println("?");
+                else      Serial.println("?");
+            }
             serial_buf_ptr = 0;
 
+        }
+
+        if (c == '.')
+        {
             if (soft) softSerial.println("E");
             else      Serial.println("E");
 
