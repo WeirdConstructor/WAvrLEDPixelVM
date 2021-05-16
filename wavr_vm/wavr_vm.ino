@@ -13,7 +13,7 @@
 #define PIN        6 // On Trinket or Gemma, suggest changing this to 1
 
 // How many NeoPixels are attached to the Arduino?
-#define NUMPIXELS 160 // Popular NeoPixel ring size
+#define NUMPIXELS 300 // Popular NeoPixel ring size
 
 // When setting up the NeoPixel library, we tell it how many pixels,
 // and which pin to use to send signals. Note that for older NeoPixel
@@ -37,12 +37,12 @@ float step(float e, float x) {
   return x < e ? 0.0 : 1.0;
 }
 
-#define MAX_INIT_REGS 32
+#define MAX_INIT_REGS 8
 
 class WAvrProg {
     public:
         uint8_t  m_prog[128 + 64];
-        uint32_t m_init_regs[32];
+        uint32_t m_init_regs[MAX_INIT_REGS];
         uint8_t  m_num_pixels;
         uint8_t  m_pix_offs;
 
@@ -62,7 +62,7 @@ class WAvrProg {
 
 WAvrProg PROG;
 
-#define MAX_RAND_COUNTERS 16
+#define MAX_RAND_COUNTERS 8
 #define MAX_GREGS 16
 #define MAX_REGS (MAX_GREGS + MAX_INIT_REGS)
 #define LAST_REG (MAX_REGS - 1)
@@ -573,9 +573,9 @@ void sendAtCommand(const char *cmd, char postFix, bool recvResponse)
             l2--;
     }
 
-    Serial.print("HC05(");
+    Serial.print("H:");
     Serial.write(buf, i - 2);
-    Serial.print(")> ");
+    Serial.print("> ");
     Serial.flush();
 
     Serial.write(rcv, l);
@@ -584,7 +584,7 @@ void sendAtCommand(const char *cmd, char postFix, bool recvResponse)
 
     if (l2 > 0)
     {
-        Serial.print("HC05>>");
+        Serial.print("H>");
         Serial.write(rcv2, l2);
         Serial.println("");
         Serial.flush();
@@ -706,35 +706,36 @@ bool parse_prog_command(ParseCmd &cmd)
         return false;
 
     int len = 0;
-         if (test_next_str("SET",     len, bcc)) cmd.command = OP_SET;
-    else if (test_next_str("MOV",     len, bcc)) cmd.command = OP_MOV;
-    else if (test_next_str("LDREG",   len, bcc)) cmd.command = OP_LDREG;
-    else if (test_next_str("IMAP",    len, bcc)) cmd.command = OP_IMAP;
-    else if (test_next_str("FMAP",    len, bcc)) cmd.command = OP_FMAP;
-    else if (test_next_str("RAND",    len, bcc)) cmd.command = OP_RAND;
-    else if (test_next_str("TPHASE",  len, bcc)) cmd.command = OP_TPHASE;
-    else if (test_next_str("SET_RGB", len, bcc)) cmd.command = OP_SET_RGB;
-    else if (test_next_str("SET_HSV", len, bcc)) cmd.command = OP_SET_HSV;
-    else if (test_next_str("HSV",     len, bcc)) cmd.command = OP_HSV;
-    else if (test_next_str("RGB",     len, bcc)) cmd.command = OP_RGB;
-    else if (test_next_str("PIX_HSV", len, bcc)) cmd.command = OP_PIX_HSV;
-    else if (test_next_str("PIX_RGB", len, bcc)) cmd.command = OP_PIX_RGB;
-    else if (test_next_str("PIX",     len, bcc)) cmd.command = OP_PIX;
-    else if (test_next_str("PIX_N",   len, bcc)) cmd.command = OP_PIX_N;
-    else if (test_next_str("ADD",     len, bcc)) cmd.command = OP_ADD;
-    else if (test_next_str("ADDF",    len, bcc)) cmd.command = OP_ADDF;
-    else if (test_next_str("MUL",     len, bcc)) cmd.command = OP_MUL;
-    else if (test_next_str("MULF",    len, bcc)) cmd.command = OP_MULF;
-    else if (test_next_str("DIV",     len, bcc)) cmd.command = OP_DIV;
-    else if (test_next_str("DIVF",    len, bcc)) cmd.command = OP_DIVF;
-    else if (test_next_str("SUB",     len, bcc)) cmd.command = OP_SUB;
-    else if (test_next_str("SUBF",    len, bcc)) cmd.command = OP_SUBF;
-    else if (test_next_str("FMOD",    len, bcc)) cmd.command = OP_FMOD;
-    else if (test_next_str("FMODF",   len, bcc)) cmd.command = OP_FMODF;
-    else if (test_next_str("SIN",     len, bcc)) cmd.command = OP_SIN;
-    else if (test_next_str("RET",     len, bcc)) cmd.command = OP_RET;
-    else
-        return false;
+    cmd.command = parse_hex_byte(ok, bcc);
+//         if (test_next_str("SET",     len, bcc)) cmd.command = OP_SET;
+//    else if (test_next_str("MOV",     len, bcc)) cmd.command = OP_MOV;
+//    else if (test_next_str("LDREG",   len, bcc)) cmd.command = OP_LDREG;
+//    else if (test_next_str("IMAP",    len, bcc)) cmd.command = OP_IMAP;
+//    else if (test_next_str("FMAP",    len, bcc)) cmd.command = OP_FMAP;
+//    else if (test_next_str("RAND",    len, bcc)) cmd.command = OP_RAND;
+//    else if (test_next_str("TPHASE",  len, bcc)) cmd.command = OP_TPHASE;
+//    else if (test_next_str("SET_RGB", len, bcc)) cmd.command = OP_SET_RGB;
+//    else if (test_next_str("SET_HSV", len, bcc)) cmd.command = OP_SET_HSV;
+//    else if (test_next_str("HSV",     len, bcc)) cmd.command = OP_HSV;
+//    else if (test_next_str("RGB",     len, bcc)) cmd.command = OP_RGB;
+//    else if (test_next_str("PIX_HSV", len, bcc)) cmd.command = OP_PIX_HSV;
+//    else if (test_next_str("PIX_RGB", len, bcc)) cmd.command = OP_PIX_RGB;
+//    else if (test_next_str("PIX",     len, bcc)) cmd.command = OP_PIX;
+//    else if (test_next_str("PIX_N",   len, bcc)) cmd.command = OP_PIX_N;
+//    else if (test_next_str("ADD",     len, bcc)) cmd.command = OP_ADD;
+//    else if (test_next_str("ADDF",    len, bcc)) cmd.command = OP_ADDF;
+//    else if (test_next_str("MUL",     len, bcc)) cmd.command = OP_MUL;
+//    else if (test_next_str("MULF",    len, bcc)) cmd.command = OP_MULF;
+//    else if (test_next_str("DIV",     len, bcc)) cmd.command = OP_DIV;
+//    else if (test_next_str("DIVF",    len, bcc)) cmd.command = OP_DIVF;
+//    else if (test_next_str("SUB",     len, bcc)) cmd.command = OP_SUB;
+//    else if (test_next_str("SUBF",    len, bcc)) cmd.command = OP_SUBF;
+//    else if (test_next_str("FMOD",    len, bcc)) cmd.command = OP_FMOD;
+//    else if (test_next_str("FMODF",   len, bcc)) cmd.command = OP_FMODF;
+//    else if (test_next_str("SIN",     len, bcc)) cmd.command = OP_SIN;
+//    else if (test_next_str("RET",     len, bcc)) cmd.command = OP_RET;
+//    else
+//        return false;
 
     cmd.arg1 = parse_hex_byte(ok, bcc);
     if (!ok)
@@ -775,8 +776,8 @@ void read_serial_buffer(bool soft)
 
         if (c == '!')
         {
-            if (soft) softSerial.println("S");
-            else      Serial.println("S");
+            if (soft) softSerial.println('S');
+            else      Serial.println('S');
 
             continue;
         }
@@ -814,13 +815,13 @@ void read_serial_buffer(bool soft)
                 Serial.print(", ");
                 Serial.println(cmd.arg3);
 
-                if (soft) softSerial.println("@");
-                else      Serial.println("@");
+                if (soft) softSerial.println('@');
+                else      Serial.println('@');
             }
             else
             {
-                if (soft) softSerial.println("?");
-                else      Serial.println("?");
+                if (soft) softSerial.println('?');
+                else      Serial.println('?');
             }
             serial_buf_ptr = 0;
 
@@ -828,8 +829,8 @@ void read_serial_buffer(bool soft)
 
         if (c == '.')
         {
-            if (soft) softSerial.println("E");
-            else      Serial.println("E");
+            if (soft) softSerial.println('E');
+            else      Serial.println('E');
 
             return;
         }
