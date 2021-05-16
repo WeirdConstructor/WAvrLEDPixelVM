@@ -9,6 +9,8 @@
 #include <avr/power.h> // Required for 16 MHz Adafruit Trinket
 #endif
 
+#include "mem_free.h"
+
 // Which pin on the Arduino is connected to the NeoPixels?
 #define PIN        6 // On Trinket or Gemma, suggest changing this to 1
 
@@ -966,6 +968,8 @@ void loop() {
         softSerial.println(fps);
         Serial.print("fps: ");
         Serial.println(fps);
+//        Serial.println("MEM:");
+//        Serial.println(freeMemory());
     }
 
     counter++;
